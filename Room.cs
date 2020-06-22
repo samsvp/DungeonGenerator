@@ -34,7 +34,6 @@ public abstract class Room
         x = _x;
         y = _y;
         doors = _doors;
-        Repr();
     }
 
     public Room(int _x, int _y, Door[] _doors, int _sizeX, int _sizeY)
@@ -48,21 +47,26 @@ public abstract class Room
     }
 
 
-    public virtual Room MergeRooms(Room room)
+    public virtual void MergeRooms(Room room)
     {
+        Directions roomRemoveDirection;
+        Directions thisRemoveDirection;
+        
         if (room.y == y)
         {
-            if ((room.x - x) == 1)
+            int dif = room.x - x;
+            if (Math.Abs(dif) != 1) throw new Exception("Can only merge adjacent rooms");
+
+            if (dif == 1)
             {
-                RemoveWalls(Directions.E);
-                room.RemoveWalls(Directions.W);
+                thisRemoveDirection = Directions.E;
+                roomRemoveDirection = Directions.W;
             }
-            else if ((room.x - x) == -1)
+            else
             {
-                RemoveWalls(Directions.W);
-                room.RemoveWalls(Directions.E);
+                thisRemoveDirection = Directions.W;
+                roomRemoveDirection = Directions.E;
             }
-            else throw new Exception("Can only merge adjacent rooms");
         }
         else if (room.x == x)
         {
@@ -74,17 +78,20 @@ public abstract class Room
             
             if (dif == 1)
             {
-                RemoveWalls(Directions.S);
-                room.RemoveWalls(Directions.N);
+                thisRemoveDirection = Directions.S;
+                roomRemoveDirection = Directions.N;
             }
             else
             {
-                RemoveWalls(Directions.N);
-                room.RemoveWalls(Directions.S);
+                thisRemoveDirection = Directions.N;
+                roomRemoveDirection = Directions.S;
             }
         }
         else throw new Exception("Can only merge adjacent rooms");
-        return this;
+        
+        RemoveWalls(thisRemoveDirection);
+        room.RemoveWalls(roomRemoveDirection);
+        Console.WriteLine(room.rT);
     }
 
 

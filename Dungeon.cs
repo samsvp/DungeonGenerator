@@ -78,8 +78,6 @@ public class Dungeon
             str += '\n';
         }
 
-        //throw new Exception("");
-
         var remainingRooms = _rooms.Where((room) => room.y != currentFloor).ToArray();
         return str + CreateMap(remainingRooms, currentFloor + 1);
     }

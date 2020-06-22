@@ -19,6 +19,7 @@ namespace ProceduralGeneration
             //Console.WriteLine(h1);
             
             h1.MergeRooms(h2);
+            h2.MergeRooms(h3);
             c5.MergeRooms(c6);
 
             // Console.WriteLine(h2.ToString());
