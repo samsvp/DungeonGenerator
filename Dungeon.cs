@@ -118,8 +118,7 @@ public class Dungeon
     /// If it is the main boss floor then it will spawn a boss room 
     /// at the end.abstract Otherwise it will spawn a stairway
     ///</sumary>
-    public List<int[]> CreateMainPath(int[] floorSize, int floor, bool bossFloor,
-                                int init_x=int.MaxValue, int init_y=int.MaxValue)
+    public List<int[]> CreateMainPath(int[] floorSize, int init_x=int.MaxValue, int init_y=int.MaxValue)
     {
         List<int[]> path = new List<int[]> ();
 
@@ -134,21 +133,20 @@ public class Dungeon
         int[] initialLocation = new int[2];
         // Boss or stair location
         int[] goalLocation = new int[2];
-        if (init_x == int.MaxValue || init_y == int.MaxValue)
-        {
-            initialLocation[0] = random.Next(floorSize[0]);
-            initialLocation[1] = 0;
 
-            // Make the goal not so close from the spawn point
-            goalLocation[0] = initialLocation[0] + floorSize[0] / 3 + random.Next(floorSize[0] / 2);
-            if (goalLocation[0] > floorSize[0])  goalLocation[0] -= floorSize[0];
+        initialLocation[0] = init_x == int.MaxValue ? random.Next(floorSize[0]) : init_x;
+        // Make the goal not so close from the spawn point
+        goalLocation[0] = initialLocation[0] + floorSize[0] / 3 + random.Next(floorSize[0] / 2);
+        if (goalLocation[0] > floorSize[0])  goalLocation[0] -= floorSize[0];
+
+        if (init_y == int.MaxValue)
+        {
+            initialLocation[1] = 0;
             goalLocation[1] = floorSize[1];
         }
         else 
         {
-            initialLocation[0] = init_x;
             initialLocation[1] = init_y;
-            goalLocation[0] = random.Next(floorSize[0]);
             goalLocation[1] = 0;
         }
 
@@ -167,14 +165,8 @@ public class Dungeon
             else if (x != goalLocation[0]) moveXorY = 0;
             else moveXorY = 1;
 
-            if (moveXorY == 0)
-            {
-                x = last_x < goalLocation[0] ? last_x + 1 : last_x - 1;
-            }
-            else
-            {
-                y = last_y < goalLocation[1] ? last_y + 1 : last_y - 1;
-            }
+            if (moveXorY == 0) x = last_x < goalLocation[0] ? last_x + 1 : last_x - 1;
+            else y = last_y < goalLocation[1] ? last_y + 1 : last_y - 1;
 
             // Set the current possition door that links it to the last position door
             currentPosition[0] = x;

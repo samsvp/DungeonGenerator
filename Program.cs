@@ -23,7 +23,7 @@ namespace ProceduralGeneration
             // Console.WriteLine(Dungeon.CreateMap(new Room[] {h1, h2, h3, c4, c5, c6}));
             var dungeon = new Dungeon(10, 10, 2, 2, true, 
                                 Dungeon.Focus.Combat, Dungeon.EnemyFrequency.Medium);
-            var path = dungeon.CreateMainPath(new int[]{50, 50}, 0, true);                            
+            var path = dungeon.CreateMainPath(new int[]{50, 50});                            
             Console.WriteLine(path);
         }
     }
