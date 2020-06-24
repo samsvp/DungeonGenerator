@@ -5,7 +5,10 @@ using System.Linq;
 public class Dungeon
 {
 
-    public int[] size;
+    // The first number of the int array dictates x coordinate size, 
+    // the second the y coordinate and the third the z coordinate.
+    // Each array is a new floor.
+    public List<int[]> size;
     public int minibossCount;
     public int vendorCount;
     public bool FOEs; // FOEs are elite enemies that pursuit the player through the levels
@@ -27,10 +30,26 @@ public class Dungeon
     public Focus focus;
     public EnemyFrequency enmFreq;
 
-    Dungeon(int[] _size, int _minibossCount, int _vendorCount, 
+    public Dungeon(List<int[]> _size, int _minibossCount, int _vendorCount, 
             bool _FOEs, Focus _focus, EnemyFrequency _enmFreq)
     {
+        if (_size.Count == 1 && _size[0].Length != 2 && _size[0].Length != 3)
+            throw new Exception("Dungeons with one floor need at least x and y coordnates.");
+        else foreach (int[] floor in size) 
+            if(floor.Length != 3) throw new Exception("Floor needs an x,y and z coordinates");
+
         size = _size;
+        minibossCount = _minibossCount;
+        vendorCount = _vendorCount;
+        FOEs = _FOEs;
+        focus = _focus;
+        enmFreq = _enmFreq;
+    }
+
+    public Dungeon(int _x, int _y, int _minibossCount, int _vendorCount, 
+            bool _FOEs, Focus _focus, EnemyFrequency _enmFreq)
+    {
+        size = new List<int[]>() {new int[] {_x, _y}};
         minibossCount = _minibossCount;
         vendorCount = _vendorCount;
         FOEs = _FOEs;

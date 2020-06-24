@@ -91,7 +91,6 @@ public abstract class Room
         
         RemoveWalls(thisRemoveDirection);
         room.RemoveWalls(roomRemoveDirection);
-        Console.WriteLine(room.rT);
     }
 
 
