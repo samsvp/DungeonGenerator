@@ -140,26 +140,26 @@ public abstract class Room
     }
 
 
-    ///<sumary>
+    ///<summary>
     /// Sets objects that the player can interact with inside the room
-    ///</sumary>
+    ///</summary>
     public virtual void SetInteractables()
     {
 
     }
 
 
-    ///<sumary>
+    ///<summary>
     /// Set obstacles inside the room
-    ///</sumary>
+    ///</summary>
     public virtual void SetObstacles()
     {
 
     }
 
-    ///<sumary>
+    ///<summary>
     /// Creates a string representation of the Room
-    ///</sumary>
+    ///</summary>
     protected virtual string Repr(char doorChar=' ')
     {
         int offset = size[0] % 2;
@@ -185,6 +185,10 @@ public abstract class Room
         return repr;
     }
 
+    public string GetRepr()
+    {
+        return Repr();
+    }
 
     public override string ToString()
     {

@@ -67,11 +67,11 @@ public class Dungeon
         mainPaths = new Map[mapSize.Count];
     }
 
-    ///<sumary>
+    ///<summary>
     /// Creates a map given a set of rooms. 
     /// It is assumed that all the rooms have the same size.
     /// A empty row means another floor.
-    ///</sumary>
+    ///</summary>
     public static string CreateMap(Room[] _rooms, int currentFloor=0)
     {
         if (_rooms.Length == 0) return "";
@@ -111,16 +111,16 @@ public class Dungeon
         return str + CreateMap(remainingRooms, currentFloor + 1);
     }
 
-    ///<sumary>
+    ///<summary>
     /// Creates the main path of the floor.
     /// Initial position will be the place where the player spawns
     /// or where the stairway of the last floor was.
     /// If it is the main boss floor then it will spawn a boss room 
     /// at the end.abstract Otherwise it will spawn a stairway
-    ///</sumary>
-    public List<int[]> CreateMainPath(int[] floorSize, int init_x=int.MaxValue, int init_y=int.MaxValue)
+    ///</summary>
+    public LinkedList<int[]> CreateMainPath(int[] floorSize, int init_x=int.MaxValue, int init_y=int.MaxValue)
     {
-        List<int[]> path = new List<int[]> ();
+        LinkedList<int[]> path = new LinkedList<int[]> ();
 
         // Available locations to store the rooms
         List<int[]> availableLocations = new List<int[]>();
@@ -156,7 +156,7 @@ public class Dungeon
         int x = last_x;
         int y = last_y;
         int[] currentPosition = new int[2];
-        path.Add(initialLocation);
+        path.AddLast(initialLocation);
         // Start creating the main path
         while(x != goalLocation[0] || y != goalLocation[1])
         {
@@ -171,7 +171,7 @@ public class Dungeon
             // Set the current possition door that links it to the last position door
             currentPosition[0] = x;
             currentPosition[1] = y;
-            path.Add(currentPosition);
+            path.AddLast(new int[] {x,y});
             // Update variables
             last_x = x;
             last_y = y;
@@ -180,5 +180,48 @@ public class Dungeon
         return path;
     }
     
+
+    public Room CreateRoom(int[] coordinates, Room.RoomType prevRoomType)
+    {
+        return new CombatRoom(coordinates[0], coordinates[1], new Door[] {});
+    }
+
+    ///<summary>
+    /// Adds doors to room based on the previous and last rooms.
+    ///</summary>
+    public Room CreateDoors(LinkedListNode<int[]> coordinates, Room room)
+    {
+        var previous = coordinates.Previous;
+        var next = coordinates.Next;
+
+        Door previousDoor;
+        Door nextDoor;
+        
+        Func<LinkedListNode<int[]>, LinkedListNode<int[]>, Door> getDoor = (current, sequence) => {
+            Door door;
+
+            if (current.Value[0] != sequence.Value[0]) 
+                door = current.Value[0] < sequence.Value[0] ? Door.E : Door.W;
+            else door = current.Value[1] < sequence.Value[1] ? Door.S : Door.N;
+
+            return door;
+        };
+
+        if (previous != null) 
+        {
+            previousDoor = getDoor.Invoke(coordinates, previous);
+            room.doors.Add(previousDoor);
+        }
+        if (next != null)
+        {
+            nextDoor = getDoor.Invoke(coordinates, next);
+            room.doors.Add(nextDoor);
+        } 
+
+        room.GetRepr();
+
+        return room;
+    }
+
 
 }

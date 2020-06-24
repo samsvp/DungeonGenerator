@@ -4,7 +4,7 @@ using System.Linq;
 
 public class CombatRoom : Room
 {
-
+    private static Random random = new Random();
     public int enemyNumber = 1;
     public List<int[]> enemyLocations = new List<int[]>();
 
@@ -20,7 +20,7 @@ public class CombatRoom : Room
         Repr();
     }
 
-    ///<sumary>
+    ///<summary>
     /// Sets the enemies location within the room
     ///</summary>
     public void SetEnemyLocations()
@@ -33,7 +33,6 @@ public class CombatRoom : Room
 
         for(int i=0; i<enemyNumber; i++)
         {
-            Random random = new Random();
             int index = random.Next(availableLocations.Count);
             enemyLocations.Add(availableLocations[index]);
             availableLocations.RemoveAt(index);

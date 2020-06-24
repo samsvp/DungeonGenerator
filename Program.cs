@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace ProceduralGeneration
@@ -20,11 +21,22 @@ namespace ProceduralGeneration
             h2.MergeRooms(h3);
             c5.MergeRooms(c6);
 
-            // Console.WriteLine(Dungeon.CreateMap(new Room[] {h1, h2, h3, c4, c5, c6}));
-            var dungeon = new Dungeon(10, 10, 2, 2, true, 
+            Console.WriteLine(Dungeon.CreateMap(new Room[] {h1, h2, h3, c4, c5, c6}));
+
+            var dungeon = new Dungeon(25, 25, 2, 2, true, 
                                 Dungeon.Focus.Combat, Dungeon.EnemyFrequency.Medium);
-            var path = dungeon.CreateMainPath(new int[]{50, 50});                            
-            Console.WriteLine(path);
+            LinkedList<int[]> path = (LinkedList<int[]>)dungeon.CreateMainPath(new int[]{25, 25});
+            var rooms = new List<Room>();
+            for(LinkedListNode<int[]> it = path.First; it != null;)
+            {
+                rooms.Add( dungeon.CreateDoors
+                    (it, new CombatRoom(it.Value[0], it.Value[1], new Room.Door[] {}))
+                );
+                LinkedListNode<int[]> next = it.Next;
+                it = next;
+            }
+            
+            Console.WriteLine(Dungeon.CreateMap(rooms.ToArray()));
         }
     }
 }
