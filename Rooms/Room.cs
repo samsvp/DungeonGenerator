@@ -22,30 +22,33 @@ public abstract class Room
         W, // Breather
         C, // Combat
         V, // Vendor
-        Z, // Void
-        I, // Initial
-        H // Heal
-          
+        S, // Initial
+        H, // Heal
+        T, // Trap
+        M, // Bank
+        P, // Puzzle
+        I, // Item
+        F // Floor Change
     };
-    public Door[] doors;
+    public List<Door> doors;
     public RoomType rT;
+
     public Room(int _x, int _y, Door[] _doors)
     {
         x = _x;
         y = _y;
-        doors = _doors;
+        doors = _doors.ToList();
     }
 
     public Room(int _x, int _y, Door[] _doors, int _sizeX, int _sizeY)
     {
         x = _x;
         y = _y;
-        doors = _doors;
+        doors = _doors.ToList();
         size[0] = _sizeX;
         size[1] = _sizeY;
         Repr();
     }
-
 
     public virtual void MergeRooms(Room room)
     {

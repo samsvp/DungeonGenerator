@@ -2,7 +2,7 @@
 
 1. Determine the dungeon size.
 
-2. Determine the player starting point on the first row and the boss room location on the last row.
+2. Determine the player starting point on the first row and the boss room location on the last row. If the dungeon has more than one floor then the a stairway room will be put near the end of the Dungeon map and the Initial Rooms of the subsequent floors will be stairway rooms as well, with the same (x,y) coordinates of the stairs used to climb up/down. If the Initial Stairway Room is at the end of the level then the Boss room will be at first row. 
 
 3. Find shortest path between the player spawn room and the boss room
 
