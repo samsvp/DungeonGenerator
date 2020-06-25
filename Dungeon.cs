@@ -2,9 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-using Door = Room.Door;
 using Direction = Room.Directions;
-using Map = System.Collections.Generic.Dictionary<System.Collections.Generic.List<int>, Room>;
+using Map = System.Collections.Generic.Dictionary<int[], Room>;
 public class Dungeon
 {
     private static Random random = new Random();
@@ -12,11 +11,12 @@ public class Dungeon
     // The first number of the int array dictates x coordinate size, 
     // the second the y coordinate and the third the z coordinate.
     // Each array is a new floor.
-    public List<int[]> mapSize;
-    private Map[] mainPaths;
-    private Map[] map;
-    public int minibossCount;
-    public int vendorCount;
+    public int[] mapSize;
+    private Map mainPath;
+    public Map map;
+    private int minibossCount;
+    private int vendorCount;
+    private int keyCount;
     public bool FOEs; // FOEs are elite enemies that pursuit the player through the levels
 
     public enum Focus
@@ -33,38 +33,21 @@ public class Dungeon
         High
     }
 
-    public Focus focus;
-    public EnemyFrequency enmFreq;
+    private Focus focus;
+    private EnemyFrequency enmFreq;
 
-    public Dungeon(List<int[]> _size, int _minibossCount, int _vendorCount, 
+    public Dungeon(int _x, int _y, int _keyCount, int _minibossCount, int _vendorCount, 
             bool _FOEs, Focus _focus, EnemyFrequency _enmFreq)
     {
-        if (_size.Count == 1 && _size[0].Length != 2 && _size[0].Length != 3)
-            throw new Exception("Dungeons with one floor need at least x and y coordnates.");
-        else foreach (int[] floor in _size) 
-            if(floor.Length != 3) throw new Exception("Floor needs an x,y and z coordinates");
-
-        mapSize = _size;
+        mapSize = new int[] {_x, _y};
+        keyCount = _keyCount;
         minibossCount = _minibossCount;
         vendorCount = _vendorCount;
         FOEs = _FOEs;
         focus = _focus;
         enmFreq = _enmFreq;
-        map = new Map[_size.Count];
-        mainPaths = new Map[_size.Count];
-    }
-
-    public Dungeon(int _x, int _y, int _minibossCount, int _vendorCount, 
-            bool _FOEs, Focus _focus, EnemyFrequency _enmFreq)
-    {
-        mapSize = new List<int[]>() {new int[] {_x, _y}};
-        minibossCount = _minibossCount;
-        vendorCount = _vendorCount;
-        FOEs = _FOEs;
-        focus = _focus;
-        enmFreq = _enmFreq;
-        map = new Map[mapSize.Count];
-        mainPaths = new Map[mapSize.Count];
+        map = new Map(new MyEqualityComparer());
+        mainPath = new Map(new MyEqualityComparer());
     }
 
     ///<summary>
@@ -92,7 +75,7 @@ public class Dungeon
                 {strs = roomStrings.First((room) => room.x == i).ToString().Split('\n');}
             catch
                 {
-                    var voidRoom = new VoidRoom(i, currentFloor, new Door[]{ });
+                    var voidRoom = new VoidRoom(i, currentFloor, new Door());
                     voidRoom.SetSize(maxXLength, maxYLength);
                     strs = voidRoom.ToString().Split('\n');
                 }
@@ -179,49 +162,131 @@ public class Dungeon
 
         return path;
     }
-    
 
-    public Room CreateRoom(int[] coordinates, Room.RoomType prevRoomType)
+    public Map CreateMainPathMap(LinkedList<int[]> path)
     {
-        return new CombatRoom(coordinates[0], coordinates[1], new Door[] {});
+        Map map = new Map(new MyEqualityComparer());
+   
+        for(LinkedListNode<int[]> it = path.First; it != null;)
+        {
+            var key = new int[] { it.Value[0], it.Value[1] };
+            ////////////////////////////////////
+            /// COMBAT DOOR IS A PLACEHOLDER ///
+            ////////////////////////////////////
+            map[key] = CreateMainPathDoors(it, new CombatRoom(it.Value[0], it.Value[1], new Door()));
+            it = it.Next;
+        }
+
+        return map;
     }
 
     ///<summary>
     /// Adds doors to room based on the previous and last rooms.
     ///</summary>
-    public Room CreateDoors(LinkedListNode<int[]> coordinates, Room room)
+    private Room CreateMainPathDoors(LinkedListNode<int[]> coordinates, Room room)
     {
         var previous = coordinates.Previous;
         var next = coordinates.Next;
 
-        Door previousDoor;
-        Door nextDoor;
+        Direction previousDirection;
+        Direction nextDirection;
         
-        Func<LinkedListNode<int[]>, LinkedListNode<int[]>, Door> getDoor = (current, sequence) => {
-            Door door;
+        Func<LinkedListNode<int[]>, LinkedListNode<int[]>, Direction> getDirection = (current, sequence) => {
+            Direction d;
 
             if (current.Value[0] != sequence.Value[0]) 
-                door = current.Value[0] < sequence.Value[0] ? Door.E : Door.W;
-            else door = current.Value[1] < sequence.Value[1] ? Door.S : Door.N;
+                d = current.Value[0] < sequence.Value[0] ? Direction.E : Direction.W;
+            else d = current.Value[1] < sequence.Value[1] ? Direction.S : Direction.N;
 
-            return door;
+            return d;
         };
 
         if (previous != null) 
         {
-            previousDoor = getDoor.Invoke(coordinates, previous);
-            room.doors.Add(previousDoor);
+            previousDirection = getDirection.Invoke(coordinates, previous);
+            room.SetDoorInDirection(previousDirection);
         }
         if (next != null)
         {
-            nextDoor = getDoor.Invoke(coordinates, next);
-            room.doors.Add(nextDoor);
-        } 
-
-        room.GetRepr();
+            nextDirection = getDirection.Invoke(coordinates, next);
+            room.SetDoorInDirection(nextDirection);
+        }
 
         return room;
     }
 
+    public void SetLockedDoors(Map map, List<int[]> lockedDoorLocations)
+    {
+        foreach (var location in lockedDoorLocations)
+        {
+            Room room = map[location];
+            List<Direction> directions = room.doors.direction;
+            Direction direction = directions.ElementAt(random.Next(directions.Count));
 
+            switch (direction)
+            {
+                case Direction.N:
+                    room.doors.lockN = '-';
+                    break;
+
+                case Direction.S:
+                    room.doors.lockS = '-';
+                    break;
+                    
+                case Direction.E:
+                    room.doors.lockE = '|';
+                    break;
+                
+                case Direction.W:
+                    room.doors.lockW = '|';
+                    break;
+
+                default:
+                    break;
+            }
+            room.SetDoorInDirection(direction);  
+        }
+    }
+
+    public List<int[]> SetLockedDoorsLocations(LinkedList<int[]> path)
+    {
+        List<int[]> lockedDoorLocations = new List<int[]>();
+
+        if (keyCount == 0) return lockedDoorLocations;
+
+        int spacing = path.Count / keyCount;
+
+        for (int i=1; i<keyCount; i++)
+        {
+            int index = random.Next(spacing * i , spacing * (i + 1) ); 
+            var _location = path.ElementAt(index);
+            int[] location = new int[] { _location[0], _location[1] };
+            lockedDoorLocations.Add(location);
+        }
+
+        return lockedDoorLocations;
+    }
+
+    public List<int[]> SetKeyLocations(LinkedList<int[]> path, List<int[]> lockedDoorLocations)
+    {
+        List<int[]> keyLocations = new List<int[]>();
+
+        if (lockedDoorLocations.Count == 0) return keyLocations;
+
+        for (int i = 0; i < lockedDoorLocations.Count; i++)
+        {
+            // Limit determines which element of the list can be reached without the key
+            int limit = path.TakeWhile(p => p != lockedDoorLocations[i]).Count();
+            var _location = path.ElementAt(random.Next(limit));
+            int[] location = new int[] { _location[0], _location[1] };
+            keyLocations.Add(location);
+        }
+
+        return keyLocations;
+    }
+
+    public Room CreateRoom(int[] coordinates, Room.RoomType prevRoomType)
+    {
+        return new CombatRoom(coordinates[0], coordinates[1], new Door());
+    }
 }

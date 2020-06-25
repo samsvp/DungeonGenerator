@@ -2,11 +2,11 @@ using System;
 
 public class VoidRoom : Room
 {
-    public VoidRoom(int x, int y, Door[] doors) : base(x, y, doors)
+    public VoidRoom(int x, int y, Door door) : base(x, y, door)
     { }
 
 
-    protected override string Repr(char doorChar=' ')
+    protected override string Repr()
     {
         repr = "";
         string empty = new String(' ', size[0] + 2);

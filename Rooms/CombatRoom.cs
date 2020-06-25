@@ -8,7 +8,7 @@ public class CombatRoom : Room
     public int enemyNumber = 1;
     public List<int[]> enemyLocations = new List<int[]>();
 
-    public CombatRoom(int x, int y, Door[] doors, int _enemyNumber=1) : base(x, y, doors)
+    public CombatRoom(int x, int y, Door door, int _enemyNumber=1) : base(x, y, door)
     { 
         rT = RoomType.C;
         if (enemyNumber < 1) throw new Exception("Combat room must contain at least 1 enemy");
@@ -27,9 +27,9 @@ public class CombatRoom : Room
     {
         List<int[]> availableLocations = new List<int[]>();
 
-        for (int i=1; i<size[0]-1; i++)
-        for (int j=1; j<size[1]-1; j++)
-        availableLocations.Add(new int[] {i,j});
+        for (int x=1; x<size[0] + 1; x++)
+        for (int y=1; y<size[1] + 1; y++)
+        availableLocations.Add(new int[] {x,y});
 
         for(int i=0; i<enemyNumber; i++)
         {
@@ -40,9 +40,9 @@ public class CombatRoom : Room
     }
 
 
-    protected override string Repr(char doorChar=' ')
+    protected override string Repr()
     {
-        base.Repr(doorChar);
+        base.Repr();
         string[] str = repr.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
         foreach(int[] location in enemyLocations)
