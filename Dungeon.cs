@@ -168,7 +168,7 @@ public class Dungeon
         int[] forkStartCoords = perimeter[forkStartIndex];
         int[] forkEndCoords = perimeter[forkEndIndex];
 
-        fork = SquarePath(forkStartCoords, forkEndCoords, perimeter.GetRange(forkStartIndex, 
+        fork = ForkSquarePath(forkStartCoords, forkEndCoords, perimeter.GetRange(forkStartIndex, 
                                                                 forkEndIndex - forkStartIndex));
 
         forksCoords.Add(fork);
@@ -214,7 +214,7 @@ public class Dungeon
         return path;
     }
 
-    private LinkedList<int[]> SquarePath(int[] startCoords, int[] endCoords, List<int[]> avoidPerimeter)
+    private LinkedList<int[]> ForkSquarePath(int[] startCoords, int[] endCoords, List<int[]> avoidPerimeter)
     {
         LinkedList<int[]> path = new LinkedList<int[]>();
 
