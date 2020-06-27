@@ -14,6 +14,10 @@ public class Dungeon
     public int[] mapSize;
     private Map mainPath;
     public Map map;
+    public LinkedList<int[]> mainPathCoords;
+    public List<LinkedList<int[]>> forksCoords = new List<LinkedList<int[]>>();
+
+
     private int minibossCount;
     private int vendorCount;
     private int keyCount;
@@ -133,28 +137,75 @@ public class Dungeon
             goalLocation[1] = 0;
         }
 
+        path = ShortestPath(initialLocation, goalLocation);
+
+        return path;
+    }
+
+    ///<summary>
+    /// Creates a fork in a region between locked doors 
+    ///</summary>
+    public LinkedList<int[]> CreateFork(LinkedList<int[]> mainPath, List<int[]> lockedDoorLocations,
+                                        int region, int forks=1)
+    {
+        var fork = new LinkedList<int[]>();
+
+        int[] startCoords = region == 0 ? mainPath.First.Value : 
+            mainPath.FirstOrDefault( p => Enumerable.SequenceEqual(p, lockedDoorLocations[region - 1] ));
+        int[] endCoords =  region == keyCount ? mainPath.Last.Value :
+            mainPath.FirstOrDefault( p => Enumerable.SequenceEqual(p, lockedDoorLocations[region]));
+        
+
+        var mainPathList = mainPath.ToList();
+        List<int[]> perimeter = mainPathList.GetRange(
+            mainPathList.IndexOf(startCoords) + 1,
+            mainPathList.IndexOf(endCoords) - mainPathList.IndexOf(startCoords));
+
+        int forkStartIndex = random.Next((int)(0.1f * perimeter.Count), (int)(0.35f * perimeter.Count));
+        int forkEndIndex = random.Next((int)(0.8f * perimeter.Count), perimeter.Count - 1);
+        
+
+        int[] forkStartCoords = perimeter[forkStartIndex];
+        int[] forkEndCoords = perimeter[forkEndIndex];
+
+        fork = SquarePath(forkStartCoords, forkEndCoords, perimeter.GetRange(forkStartIndex, 
+                                                                forkEndIndex - forkStartIndex));
+
+        forksCoords.Add(fork);
+
+        return fork;
+    }
+
+    private LinkedList<int[]> ShortestPath(int[] startCoords, int[] endCoords)
+    {
+        LinkedList<int[]> path = new LinkedList<int[]>();
+
         // Set current room location variables
-        int last_x = initialLocation[0];
-        int last_y = initialLocation[1];
+        int last_x = startCoords[0];
+        int last_y = startCoords[1];
         int x = last_x;
         int y = last_y;
+
         int[] currentPosition = new int[2];
-        path.AddLast(initialLocation);
+
+        path.AddLast(startCoords);
+
         // Start creating the main path
-        while(x != goalLocation[0] || y != goalLocation[1])
+        while(x != endCoords[0] || y != endCoords[1])
         {
             int moveXorY;
-            if (x != goalLocation[0] && y != goalLocation[1]) moveXorY = random.Next(2);
-            else if (x != goalLocation[0]) moveXorY = 0;
+            if (x != endCoords[0] && y != endCoords[1]) moveXorY = random.Next(2);
+            else if (x != endCoords[0]) moveXorY = 0;
             else moveXorY = 1;
 
-            if (moveXorY == 0) x = last_x < goalLocation[0] ? last_x + 1 : last_x - 1;
-            else y = last_y < goalLocation[1] ? last_y + 1 : last_y - 1;
+            if (moveXorY == 0) x = last_x < endCoords[0] ? last_x + 1 : last_x - 1;
+            else y = last_y < endCoords[1] ? last_y + 1 : last_y - 1;
 
             // Set the current possition door that links it to the last position door
             currentPosition[0] = x;
             currentPosition[1] = y;
             path.AddLast(new int[] {x,y});
+
             // Update variables
             last_x = x;
             last_y = y;
@@ -163,7 +214,44 @@ public class Dungeon
         return path;
     }
 
-    public Map CreateMainPathMap(LinkedList<int[]> path)
+    private LinkedList<int[]> SquarePath(int[] startCoords, int[] endCoords, List<int[]> avoidPerimeter)
+    {
+        LinkedList<int[]> path = new LinkedList<int[]>();
+
+        if (avoidPerimeter.Count < 2) return path;
+
+        int x = startCoords[0];
+        int y = startCoords[1];
+
+        bool addToX = x < endCoords[0];
+        bool addToY = y < endCoords[1];
+
+        path.AddFirst(startCoords);
+
+        Console.WriteLine("Start coords: " + startCoords[0] + ", " + startCoords[1]);
+        Console.WriteLine("End coords: " + endCoords[0] + ", " + endCoords[1]);
+
+        bool moveX = y != avoidPerimeter[1][1];
+        bool moveY = x != avoidPerimeter[1][0];
+
+        while(x != endCoords[0] || y != endCoords[1])
+        {
+            if (moveY)
+            {
+                while (y != endCoords[1]) path.AddLast(new int[] {x, addToY ? ++y : --y});
+                while (x != endCoords[0]) path.AddLast(new int[] {addToX ? ++x : --x, y});
+            }
+            else if (moveX)
+            {
+                while (x != endCoords[0]) path.AddLast(new int[] {addToX ? ++x : --x, y});
+                while (y != endCoords[1]) path.AddLast(new int[] {x, addToY ? ++y : --y});
+            }
+        }
+
+        return path;
+    } 
+
+    public Map CreatePathMap(LinkedList<int[]> path)
     {
         Map map = new Map(new MyEqualityComparer());
    
@@ -256,7 +344,7 @@ public class Dungeon
 
         int spacing = path.Count / keyCount;
 
-        for (int i=1; i<keyCount; i++)
+        for (int i=0; i<keyCount; i++)
         {
             int index = random.Next(spacing * i , spacing * (i + 1) ); 
             var _location = path.ElementAt(index);
