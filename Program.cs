@@ -21,14 +21,16 @@ namespace ProceduralGeneration
             dungeon.SetLockedDoors(map, lockedDoorLocations);
 
             List<Room> rooms = new List<Room>();
+            
+            LinkedList<int[]> fork1 = dungeon.CreateFork(path, lockedDoorLocations, 0);
+            var maps = dungeon.CreateForkMap(fork1, path, map);
+
+            var fork1Map = maps[0];
+            map = maps[1];
             foreach(var kvp in map)
             {
                 rooms.Add(kvp.Value);
             }
-            
-            LinkedList<int[]> fork1 = dungeon.CreateFork(path, lockedDoorLocations, 0);
-            var fork1Map = dungeon.CreatePathMap(fork1);
-            
             foreach(var kvp in fork1Map)
             {
                 rooms.Add(kvp.Value);

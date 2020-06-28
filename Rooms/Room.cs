@@ -12,7 +12,7 @@ public abstract class Room
     public string repr = "";
     public int[] size = new int[2] {5, 5};
 
-      public enum Directions
+    public enum Directions
     { N,S,E,W };
     public enum RoomType
     { 
@@ -48,11 +48,11 @@ public abstract class Room
         Repr();
     }
 
-    public virtual void MergeRooms(Room room)
+    private Directions[] GetAdjacentRoomDirections(Room room)
     {
-        Directions roomRemoveDirection;
-        Directions thisRemoveDirection;
-        
+        Directions thisDirection;
+        Directions otherDirection;
+
         if (room.y == y)
         {
             int dif = room.x - x;
@@ -60,13 +60,13 @@ public abstract class Room
 
             if (dif == 1)
             {
-                thisRemoveDirection = Directions.E;
-                roomRemoveDirection = Directions.W;
+                thisDirection = Directions.E;
+                otherDirection = Directions.W;
             }
             else
             {
-                thisRemoveDirection = Directions.W;
-                roomRemoveDirection = Directions.E;
+                thisDirection = Directions.W;
+                otherDirection = Directions.E;
             }
         }
         else if (room.x == x)
@@ -79,16 +79,25 @@ public abstract class Room
             
             if (dif == 1)
             {
-                thisRemoveDirection = Directions.S;
-                roomRemoveDirection = Directions.N;
+                thisDirection = Directions.S;
+                otherDirection = Directions.N;
             }
             else
             {
-                thisRemoveDirection = Directions.N;
-                roomRemoveDirection = Directions.S;
+                thisDirection = Directions.N;
+                otherDirection = Directions.S;
             }
         }
         else throw new Exception("Can only merge adjacent rooms");
+        return new Directions[] { thisDirection, otherDirection };
+    }
+
+    public virtual void MergeRooms(Room room)
+    {
+        Directions[] directions = GetAdjacentRoomDirections(room);
+        
+        Directions thisRemoveDirection = directions[0];
+        Directions roomRemoveDirection = directions[1];
         
         RemoveWalls(thisRemoveDirection);
         room.RemoveWalls(roomRemoveDirection);

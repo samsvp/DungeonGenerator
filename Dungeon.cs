@@ -228,23 +228,34 @@ public class Dungeon
 
         path.AddFirst(startCoords);
 
-        Console.WriteLine("Start coords: " + startCoords[0] + ", " + startCoords[1]);
-        Console.WriteLine("End coords: " + endCoords[0] + ", " + endCoords[1]);
-
         bool moveX = y != avoidPerimeter[1][1];
         bool moveY = x != avoidPerimeter[1][0];
 
-        while(x != endCoords[0] || y != endCoords[1])
+        if (moveY)
         {
-            if (moveY)
+            while (y != endCoords[1]) 
+                path.AddLast(new int[] {x, addToY ? ++y : --y});
+            while (x != endCoords[0])
             {
-                while (y != endCoords[1]) path.AddLast(new int[] {x, addToY ? ++y : --y});
-                while (x != endCoords[0]) path.AddLast(new int[] {addToX ? ++x : --x, y});
-            }
-            else if (moveX)
+                path.AddLast(new int[] {addToX ? ++x : --x, y});
+                if (avoidPerimeter.Any((a) => Enumerable.SequenceEqual(a, path.Last.Value)))
+                {
+                    break;
+                }
+            } 
+        }       
+                    
+        else if (moveX)
+        {
+            while (x != endCoords[0]) 
+                path.AddLast(new int[] {addToX ? ++x : --x, y});
+            while (y != endCoords[1])
             {
-                while (x != endCoords[0]) path.AddLast(new int[] {addToX ? ++x : --x, y});
-                while (y != endCoords[1]) path.AddLast(new int[] {x, addToY ? ++y : --y});
+                path.AddLast(new int[] {x, addToY ? ++y : --y});
+                if (avoidPerimeter.Any((a) => Enumerable.SequenceEqual(a, path.Last.Value)))
+                {
+                    break;
+                }
             }
         }
 
@@ -268,6 +279,34 @@ public class Dungeon
         return map;
     }
 
+    public Map[] CreateForkMap(LinkedList<int[]> forkPath, LinkedList<int[]> mainPath, Map mainMap)
+    {
+        Map map = new Map(new MyEqualityComparer());
+
+        int[] startCoords = mainPath.First((kp) => Enumerable.SequenceEqual(kp, forkPath.First.Value));
+        map[startCoords] = mainMap[startCoords];
+
+        mainMap[startCoords] = 
+            JoinForkToMainPath(forkPath.First.Next, mainPath.Find(forkPath.First.Value), mainMap[startCoords]);
+
+        for(LinkedListNode<int[]> it = forkPath.First.Next; it != forkPath.Last;)
+        {
+            var key = new int[] { it.Value[0], it.Value[1] };
+            ////////////////////////////////////
+            /// COMBAT DOOR IS A PLACEHOLDER ///
+            ////////////////////////////////////
+            map[key] = CreateMainPathDoors(it, new CombatRoom(it.Value[0], it.Value[1], new Door()));
+            it = it.Next;
+        }
+
+        int[] endCoords = forkPath.Last.Value;
+        int[] endCoordsPrev = forkPath.Last.Previous.Value;
+
+         mainMap[endCoords] = 
+            JoinForkToMainPath(forkPath.Last.Previous, forkPath.Last, mainMap[endCoords]);
+
+        return new Map[] {map, mainMap};
+    }
     ///<summary>
     /// Adds doors to room based on the previous and last rooms.
     ///</summary>
@@ -279,29 +318,42 @@ public class Dungeon
         Direction previousDirection;
         Direction nextDirection;
         
-        Func<LinkedListNode<int[]>, LinkedListNode<int[]>, Direction> getDirection = (current, sequence) => {
-            Direction d;
-
-            if (current.Value[0] != sequence.Value[0]) 
-                d = current.Value[0] < sequence.Value[0] ? Direction.E : Direction.W;
-            else d = current.Value[1] < sequence.Value[1] ? Direction.S : Direction.N;
-
-            return d;
-        };
-
         if (previous != null) 
         {
-            previousDirection = getDirection.Invoke(coordinates, previous);
+            previousDirection = GetDoorDirection(coordinates, previous);
             room.SetDoorInDirection(previousDirection);
         }
         if (next != null)
         {
-            nextDirection = getDirection.Invoke(coordinates, next);
+            nextDirection = GetDoorDirection(coordinates, next);
             room.SetDoorInDirection(nextDirection);
         }
 
         return room;
     }
+
+    private Room JoinForkToMainPath(LinkedListNode<int[]> node1,
+                 LinkedListNode<int[]> node2, Room room)
+    {
+        Direction direction = GetDoorDirection(node2, node1);
+        room.SetDoorInDirection(direction);
+
+        return room;
+    }
+
+
+    private Direction GetDoorDirection(LinkedListNode<int[]> node1, LinkedListNode<int[]> node2)
+    {
+            Direction d;
+
+            if (node1.Value[0] != node2.Value[0]) 
+                d = node1.Value[0] < node2.Value[0] ? Direction.E : Direction.W;
+            else 
+                d = node1.Value[1] < node2.Value[1] ? Direction.S : Direction.N;
+
+            return d;
+    }
+
 
     public void SetLockedDoors(Map map, List<int[]> lockedDoorLocations)
     {
@@ -344,9 +396,12 @@ public class Dungeon
 
         int spacing = path.Count / keyCount;
 
-        for (int i=0; i<keyCount; i++)
+        if (spacing < 10) throw new Exception("Path is too small for this key count");
+
+        for (int i=1; i<keyCount; i++)
         {
-            int index = random.Next(spacing * i , spacing * (i + 1) ); 
+            int index = random.Next(spacing * i , spacing * (i + 1) );
+            if (index < 5) index += 5; 
             var _location = path.ElementAt(index);
             int[] location = new int[] { _location[0], _location[1] };
             lockedDoorLocations.Add(location);
