@@ -12,10 +12,12 @@ public class Dungeon
     // the second the y coordinate and the third the z coordinate.
     // Each array is a new floor.
     public int[] mapSize;
-    private Map mainPath;
-    public Map map;
-    public LinkedList<int[]> mainPathCoords;
-    public List<LinkedList<int[]>> forksCoords = new List<LinkedList<int[]>>();
+    private Map mainMap;
+    public List<Map> forksMap;
+    public List<Map> loopsMap;
+    public LinkedList<int[]> mainPath = new LinkedList<int[]>();
+    public List<LinkedList<int[]>> forksPath = new List<LinkedList<int[]>>();
+    public List<LinkedList<int[]>> loopsPath = new List<LinkedList<int[]>>();
 
 
     private int minibossCount;
@@ -40,6 +42,14 @@ public class Dungeon
     private Focus focus;
     private EnemyFrequency enmFreq;
 
+    public Dungeon(int _keyCount)
+    {
+        keyCount = _keyCount;
+        loopsMap = new List<Map>();
+        forksMap = new List<Map>();
+        mainMap = new Map(new MyEqualityComparer());
+    }
+
     public Dungeon(int _x, int _y, int _keyCount, int _minibossCount, int _vendorCount, 
             bool _FOEs, Focus _focus, EnemyFrequency _enmFreq)
     {
@@ -50,8 +60,9 @@ public class Dungeon
         FOEs = _FOEs;
         focus = _focus;
         enmFreq = _enmFreq;
-        map = new Map(new MyEqualityComparer());
-        mainPath = new Map(new MyEqualityComparer());
+        loopsMap = new List<Map>();
+        forksMap = new List<Map>();
+        mainMap = new Map(new MyEqualityComparer());
     }
 
     ///<summary>
@@ -62,7 +73,7 @@ public class Dungeon
     public static string CreateMap(Room[] _rooms, int currentFloor=0)
     {
         if (_rooms.Length == 0) return "";
-        
+        Console.WriteLine("currentFloor: " + currentFloor);
         Room[] roomStrings = _rooms.Where((room) => room.y == currentFloor).ToArray();
 
         int maxX = roomStrings.Length > 0 ? 
@@ -94,7 +105,7 @@ public class Dungeon
             str += '\n';
         }
 
-        var remainingRooms = _rooms.Where((room) => room.y != currentFloor).ToArray();
+        var remainingRooms = _rooms.Where((room) => room.y >= currentFloor).ToArray();
         return str + CreateMap(remainingRooms, currentFloor + 1);
     }
 
@@ -138,6 +149,7 @@ public class Dungeon
         }
 
         path = ShortestPath(initialLocation, goalLocation);
+        this.mainPath = path;
 
         return path;
     }
@@ -146,24 +158,14 @@ public class Dungeon
     /// Creates a fork in a region between locked doors 
     ///</summary>
     public LinkedList<int[]> CreateFork(LinkedList<int[]> mainPath, List<int[]> lockedDoorLocations,
-                                        int region, int forks=1)
+                                        int region)
     {
         var fork = new LinkedList<int[]>();
 
-        int[] startCoords = region == 0 ? mainPath.First.Value : 
-            mainPath.FirstOrDefault( p => Enumerable.SequenceEqual(p, lockedDoorLocations[region - 1] ));
-        int[] endCoords =  region == keyCount ? mainPath.Last.Value :
-            mainPath.FirstOrDefault( p => Enumerable.SequenceEqual(p, lockedDoorLocations[region]));
-        
-
-        var mainPathList = mainPath.ToList();
-        List<int[]> perimeter = mainPathList.GetRange(
-            mainPathList.IndexOf(startCoords) + 1,
-            mainPathList.IndexOf(endCoords) - mainPathList.IndexOf(startCoords));
+        List<int[]> perimeter = GetRegion(mainPath, lockedDoorLocations, region);
 
         int forkStartIndex = random.Next((int)(0.1f * perimeter.Count), (int)(0.35f * perimeter.Count));
         int forkEndIndex = random.Next((int)(0.8f * perimeter.Count), perimeter.Count - 1);
-        
 
         int[] forkStartCoords = perimeter[forkStartIndex];
         int[] forkEndCoords = perimeter[forkEndIndex];
@@ -171,11 +173,61 @@ public class Dungeon
         fork = ForkSquarePath(forkStartCoords, forkEndCoords, perimeter.GetRange(forkStartIndex, 
                                                                 forkEndIndex - forkStartIndex));
 
-        forksCoords.Add(fork);
+        forksPath.Add(fork);
 
         return fork;
     }
 
+    ///<summary>
+    /// Creates a loop for a room inside a region
+    ///</summary>
+    public LinkedList<int[]> CreateLoop(LinkedList<int[]> mainPath, List<LinkedList<int[]>> forksPath,
+                                        List<int[]> lockedDoorLocations, int region, int count=0)
+    {
+        var loop = new LinkedList<int[]>();
+
+        List<int[]> perimeter = GetRegion(mainPath, lockedDoorLocations, region);
+
+        Func<List<int[]>, List<int[]>, List<int[]>> GetPossibleLoopRooms = (mPathCoords, aPathCoords) =>
+        {   
+            List<int[]> mPossibleRooms = new List<int[]>();
+
+            mPossibleRooms = mPathCoords.Where(m => {
+                var roomDirectionsX = new int[][] 
+                { new int[] {m[0] + 1, m[1]}, new int[] {m[0] - 1, m[1]} };
+                var roomDirectionsY = new int[][] 
+                { new int[] {m[0], m[1] + 1}, new int[] {m[0], m[1] - 1} };
+
+                int counterX = 0;
+                int counterY = 0;
+                foreach (int[] a in aPathCoords)
+                {
+                    if (Enumerable.SequenceEqual(a, roomDirectionsX[0])) counterX++;
+                    else if (Enumerable.SequenceEqual(a, roomDirectionsX[1])) counterX++;
+                    if (Enumerable.SequenceEqual(a, roomDirectionsY[0])) counterY++;
+                    else if (Enumerable.SequenceEqual(a, roomDirectionsY[1])) counterY++;
+                    if (counterX == 2 || counterY == 2) return false;
+                } 
+                return true;
+            }).ToList();
+            
+            return mPossibleRooms;
+        };
+        
+        List<int[]> forksList = forksPath.SelectMany(f => f.ToList()).ToList();
+        List<int[]> avoidPerimeter = forksList.Concat(mainPath).ToList();
+        var possibleRooms = GetPossibleLoopRooms.Invoke(perimeter, avoidPerimeter);
+
+        if (possibleRooms.Count == 0) return loop;
+
+        int[] index = possibleRooms[random.Next(possibleRooms.Count)];
+        loop = LoopPath(index, avoidPerimeter);
+        loopsPath.Add(loop);
+
+        return loop;
+    }
+
+    #region Paths
     private LinkedList<int[]> ShortestPath(int[] startCoords, int[] endCoords)
     {
         LinkedList<int[]> path = new LinkedList<int[]>();
@@ -218,8 +270,6 @@ public class Dungeon
     {
         LinkedList<int[]> path = new LinkedList<int[]>();
 
-        if (avoidPerimeter.Count < 2) return path;
-
         int x = startCoords[0];
         int y = startCoords[1];
 
@@ -239,9 +289,7 @@ public class Dungeon
             {
                 path.AddLast(new int[] {addToX ? ++x : --x, y});
                 if (avoidPerimeter.Any((a) => Enumerable.SequenceEqual(a, path.Last.Value)))
-                {
                     break;
-                }
             } 
         }       
                     
@@ -253,16 +301,79 @@ public class Dungeon
             {
                 path.AddLast(new int[] {x, addToY ? ++y : --y});
                 if (avoidPerimeter.Any((a) => Enumerable.SequenceEqual(a, path.Last.Value)))
-                {
                     break;
-                }
             }
         }
 
         return path;
-    } 
+    }
 
-    public Map CreatePathMap(LinkedList<int[]> path)
+    private LinkedList<int[]> LoopPath(int[] startCoords, List<int[]> avoidPerimeter)
+    {
+        var path = new LinkedList<int[]>();
+
+        // These are the points where the loop will change direction
+        List<int[]> keyPoints = new List<int[]>();
+
+        int maxX = random.Next(2,5);
+        int maxY = random.Next(2,5);
+
+        int[] endCoords = new int[2];
+
+        path.AddFirst(startCoords);
+
+        var right = new int[] { startCoords [0] + 1, startCoords[1] };
+        bool goRight = !avoidPerimeter.Any(p => Enumerable.SequenceEqual(p, right));
+        endCoords[0] = goRight ? startCoords[0] + maxX : startCoords[0] - maxX;
+
+        while (endCoords[0] != path.Last.Value[0])
+        {
+            var coords = goRight ? new int[] { path.Last.Value[0] + 1, path.Last.Value[1]} : 
+                                   new int[] { path.Last.Value[0] - 1, path.Last.Value[1]};
+            if (avoidPerimeter.Any((a) => 
+                Enumerable.SequenceEqual(a, new int[] {coords[0], startCoords[1]}) ||
+                Enumerable.SequenceEqual(a, coords))) 
+            {
+                break;
+            } else path.AddLast(coords);
+        }
+        var up = new int[] { startCoords [0], startCoords[1] + 1};
+        bool goUp = !avoidPerimeter.Any(p => Enumerable.SequenceEqual(p, up));
+        endCoords[1] = goUp ? startCoords[1] + maxY : startCoords[1] - maxY;
+
+        while (endCoords[1] != path.Last.Value[1])
+        {
+            var coords = goUp ? new int[] { path.Last.Value[0], path.Last.Value[1] + 1} : 
+                                new int[] { path.Last.Value[0], + path.Last.Value[1] - 1};
+            if (avoidPerimeter.Any((a) => 
+                Enumerable.SequenceEqual(a, new int[] {startCoords[0], coords[1]}) ||
+                Enumerable.SequenceEqual(a, coords))) 
+            {
+                break;
+            } else path.AddLast(coords);
+        }
+        
+        while (path.Last.Value[0] != path.First.Value[0])
+        {
+            var coords = goRight ? new int[] { path.Last.Value[0] - 1, path.Last.Value[1]} : 
+                                   new int[] { path.Last.Value[0] + 1, path.Last.Value[1]};
+            path.AddLast(coords);
+        }
+        while (path.Last.Value[1] != path.First.Value[1])
+        {
+            var coords = goUp ? new int[] { path.Last.Value[0], path.Last.Value[1] - 1} : 
+                                new int[] { path.Last.Value[0], + path.Last.Value[1] + 1};
+            path.AddLast(coords);
+        }
+        
+        return path;
+    }
+
+    #endregion Paths
+
+    #region Maps
+    
+    public Map CreateMainPathMap(LinkedList<int[]> path)
     {
         Map map = new Map(new MyEqualityComparer());
    
@@ -275,6 +386,7 @@ public class Dungeon
             map[key] = CreateMainPathDoors(it, new CombatRoom(it.Value[0], it.Value[1], new Door()));
             it = it.Next;
         }
+        this.mainMap = map;
 
         return map;
     }
@@ -287,7 +399,7 @@ public class Dungeon
         map[startCoords] = mainMap[startCoords];
 
         mainMap[startCoords] = 
-            JoinForkToMainPath(forkPath.First.Next, mainPath.Find(forkPath.First.Value), mainMap[startCoords]);
+            JoinRooms(forkPath.First.Next, mainPath.Find(forkPath.First.Value), mainMap[startCoords]);
 
         for(LinkedListNode<int[]> it = forkPath.First.Next; it != forkPath.Last;)
         {
@@ -295,7 +407,7 @@ public class Dungeon
             ////////////////////////////////////
             /// COMBAT DOOR IS A PLACEHOLDER ///
             ////////////////////////////////////
-            map[key] = CreateMainPathDoors(it, new CombatRoom(it.Value[0], it.Value[1], new Door()));
+            map[key] = CreateMainPathDoors(it, new VendorRoom(it.Value[0], it.Value[1], new Door()));
             it = it.Next;
         }
 
@@ -303,10 +415,55 @@ public class Dungeon
         int[] endCoordsPrev = forkPath.Last.Previous.Value;
 
          mainMap[endCoords] = 
-            JoinForkToMainPath(forkPath.Last.Previous, forkPath.Last, mainMap[endCoords]);
+            JoinRooms(forkPath.Last.Previous, forkPath.Last, mainMap[endCoords]);
+
+        this.forksMap.Add(map);
+        this.mainMap = mainMap;
 
         return new Map[] {map, mainMap};
     }
+
+    public Map[] CreateLoopMap(LinkedList<int[]> loopPath, LinkedList<int[]> mainPath, Map mainMap)
+    {
+        // Although the code is the same as the fork map function. the rooms logic
+        // will change later
+
+        Map map = new Map(new MyEqualityComparer());
+
+        if (loopPath.Count == 0) return new Map[] {map, mainMap};
+
+        int[] startCoords = mainPath.First((kp) => Enumerable.SequenceEqual(kp, loopPath.First.Value));
+        map[startCoords] = mainMap[startCoords];
+
+        mainMap[startCoords] = 
+            JoinRooms(loopPath.First, mainPath.Find(loopPath.First.Value), mainMap[startCoords]);
+
+        for(LinkedListNode<int[]> it = loopPath.First.Next; it != loopPath.Last;)
+        {
+            var key = new int[] { it.Value[0], it.Value[1] };
+            ////////////////////////////////////
+            /// COMBAT DOOR IS A PLACEHOLDER ///
+            ////////////////////////////////////
+            map[key] = CreateMainPathDoors(it, new HealRoom(it.Value[0], it.Value[1], new Door()));
+            it = it.Next;
+        }
+
+        int[] endCoords = loopPath.Last.Value;
+        int[] endCoordsPrev = loopPath.Last.Previous.Value;
+
+        mainMap[endCoords] = 
+            JoinRooms(loopPath.Last.Previous, loopPath.Last, mainMap[endCoords]);
+
+        this.loopsMap.Add(map);
+        this.mainMap = mainMap;
+
+        return new Map[] {map, mainMap};
+    }
+
+    #endregion Maps
+
+    #region Doors
+
     ///<summary>
     /// Adds doors to room based on the previous and last rooms.
     ///</summary>
@@ -332,16 +489,6 @@ public class Dungeon
         return room;
     }
 
-    private Room JoinForkToMainPath(LinkedListNode<int[]> node1,
-                 LinkedListNode<int[]> node2, Room room)
-    {
-        Direction direction = GetDoorDirection(node2, node1);
-        room.SetDoorInDirection(direction);
-
-        return room;
-    }
-
-
     private Direction GetDoorDirection(LinkedListNode<int[]> node1, LinkedListNode<int[]> node2)
     {
             Direction d;
@@ -362,30 +509,35 @@ public class Dungeon
             Room room = map[location];
             List<Direction> directions = room.doors.direction;
             Direction direction = directions.ElementAt(random.Next(directions.Count));
-
-            switch (direction)
-            {
-                case Direction.N:
-                    room.doors.lockN = '-';
-                    break;
-
-                case Direction.S:
-                    room.doors.lockS = '-';
-                    break;
-                    
-                case Direction.E:
-                    room.doors.lockE = '|';
-                    break;
-                
-                case Direction.W:
-                    room.doors.lockW = '|';
-                    break;
-
-                default:
-                    break;
-            }
-            room.SetDoorInDirection(direction);  
+            map[location] = SetLockedDoor(room, direction);
         }
+    }
+
+    private Room SetLockedDoor(Room room, Direction direction)
+    {
+        switch (direction)
+        {
+            case Direction.N:
+                room.doors.lockN = '-';
+                break;
+
+            case Direction.S:
+                room.doors.lockS = '-';
+                break;
+                
+            case Direction.E:
+                room.doors.lockE = '|';
+                break;
+            
+            case Direction.W:
+                room.doors.lockW = '|';
+                break;
+
+            default:
+                break;
+        }
+        room.SetDoorInDirection(direction);
+        return room;
     }
 
     public List<int[]> SetLockedDoorsLocations(LinkedList<int[]> path)
@@ -398,7 +550,7 @@ public class Dungeon
 
         if (spacing < 10) throw new Exception("Path is too small for this key count");
 
-        for (int i=1; i<keyCount; i++)
+        for (int i=0; i<keyCount; i++)
         {
             int index = random.Next(spacing * i , spacing * (i + 1) );
             if (index < 5) index += 5; 
@@ -409,6 +561,8 @@ public class Dungeon
 
         return lockedDoorLocations;
     }
+
+    #endregion Doors
 
     public List<int[]> SetKeyLocations(LinkedList<int[]> path, List<int[]> lockedDoorLocations)
     {
@@ -428,8 +582,42 @@ public class Dungeon
         return keyLocations;
     }
 
+    #region Rooms
+
+    private Room JoinRooms(LinkedListNode<int[]> node1,
+                 LinkedListNode<int[]> node2, Room room)
+    {
+        Direction direction = GetDoorDirection(node2, node1);
+        room.SetDoorInDirection(direction);
+
+        return room;
+    }
+
     public Room CreateRoom(int[] coordinates, Room.RoomType prevRoomType)
     {
         return new CombatRoom(coordinates[0], coordinates[1], new Door());
+    }
+
+    #endregion Rooms
+
+    ///<summary>
+    /// Returns a list of coordinates contained in a given region.
+    /// A region is the perimeter between locked doors
+    ///</summary>
+    private List<int[]> GetRegion(LinkedList<int[]> mainPath, List<int[]> lockedDoorLocations,
+                                        int region)
+    {
+        int[] startCoords = region == 0 ? mainPath.First.Value : 
+            mainPath.FirstOrDefault( p => Enumerable.SequenceEqual(p, lockedDoorLocations[region - 1] ));
+        int[] endCoords =  region == keyCount ? mainPath.Last.Value :
+            mainPath.FirstOrDefault( p => Enumerable.SequenceEqual(p, lockedDoorLocations[region]));
+        
+
+        var mainPathList = mainPath.ToList();
+        List<int[]> perimeter = mainPathList.GetRange(
+            mainPathList.IndexOf(startCoords) + 1,
+            mainPathList.IndexOf(endCoords) - mainPathList.IndexOf(startCoords));
+
+        return perimeter;
     }
 }
